@@ -5,8 +5,10 @@ import { createClient } from "@libsql/client";
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
 
 function createPrismaClient() {
-  const url = process.env.TURSO_DATABASE_URL;
-  if (!url) throw new Error("TURSO_DATABASE_URL is not set");
+  // During Vercel build, Next.js evaluates routes which triggers this file.
+  // If the env var isn't set (e.g., during static generation), provide a dummy URL 
+  // so the build doesn't crash.
+  const url = process.env.TURSO_DATABASE_URL || "libsql://dummy-url.turso.io";
 
   // @libsql/client accepts auth token embedded in URL as ?authToken=...
   const libsql = createClient({ url });
