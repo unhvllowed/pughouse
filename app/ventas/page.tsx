@@ -128,7 +128,7 @@ export default function VentasPage() {
 
         <div className="page-content">
           {tab === "nueva" ? (
-            <div className="grid-2" style={{ gap: 24, alignItems: "start" }}>
+            <div className="grid-2 sales-grid" style={{ gap: 24, alignItems: "start" }}>
               <div>
                 <div className="section-header"><h3 className="section-title">Buscar Productos</h3></div>
                 <div className="form-group">
