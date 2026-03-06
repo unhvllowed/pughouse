@@ -1,4 +1,9 @@
-import "dotenv/config";
+import { config } from "dotenv";
+
+// Load .env.local first (local dev), then .env as fallback
+config({ path: ".env.local", override: true });
+config();
+
 import { defineConfig } from "prisma/config";
 
 export default defineConfig({
@@ -7,5 +12,7 @@ export default defineConfig({
     path: "prisma/migrations",
     seed: "tsx prisma/seed.ts",
   },
-  // datasource.url is now defined in schema.prisma via env("TURSO_DATABASE_URL")
+  datasource: {
+    url: process.env.TURSO_DATABASE_URL,
+  },
 });

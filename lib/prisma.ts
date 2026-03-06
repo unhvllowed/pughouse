@@ -6,11 +6,10 @@ const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
 
 function createPrismaClient() {
   const url = process.env.TURSO_DATABASE_URL;
-  const authToken = process.env.TURSO_AUTH_TOKEN;
-
   if (!url) throw new Error("TURSO_DATABASE_URL is not set");
 
-  const libsql = createClient({ url, authToken });
+  // @libsql/client accepts auth token embedded in URL as ?authToken=...
+  const libsql = createClient({ url });
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const adapter = new PrismaLibSql(libsql as any);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
