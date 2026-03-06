@@ -1,13 +1,11 @@
 import { PrismaClient } from "@prisma/client";
-import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
-import path from "path";
-import { fileURLToPath } from "url";
+import { PrismaLibSql } from "@prisma/adapter-libsql";
+import { createClient } from "@libsql/client";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const dbPath = path.resolve(__dirname, "../dev.db");
-
+const url = process.env.TURSO_DATABASE_URL || "file:./dev.db";
+const libsql = createClient({ url });
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const adapter = new PrismaBetterSqlite3({ url: `file:${dbPath}` } as any);
+const adapter = new PrismaLibSql(libsql as any);
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const prisma = new PrismaClient({ adapter } as any);
 
