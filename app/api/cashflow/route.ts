@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import type { CashFlow } from "@prisma/client";
 
 // Helper: parse YYYY-MM-DD into UTC timestamp boundaries
 function dayBoundsUTC(dateStr: string) {
@@ -24,7 +25,7 @@ export async function GET(req: NextRequest) {
   const all = await prisma.cashFlow.findMany({ orderBy: { date: "desc" } });
 
   // ── Filter for entries table/KPIs by month ─────────────────────────────────
-  let entries = all;
+  let entries: CashFlow[] = all;
   if (month) {
     const [y, m] = month.split("-").map(Number);
     const start = Date.UTC(y, m - 1, 1);
