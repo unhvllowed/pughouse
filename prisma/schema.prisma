@@ -1,0 +1,94 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Game {
+  id        Int       @id @default(autoincrement())
+  name      String
+  slug      String    @unique
+  imageUrl  String?
+  createdAt DateTime  @default(now())
+  products  Product[]
+  cardSets  CardSet[]
+}
+
+model CardSet {
+  id          Int      @id @default(autoincrement())
+  name        String
+  tcgdexId    String   @unique
+  releaseDate String?
+  logoUrl     String?
+  symbolUrl   String?
+  gameId      Int
+  game        Game     @relation(fields: [gameId], references: [id])
+  cards       Card[]
+  createdAt   DateTime @default(now())
+}
+
+model Card {
+  id        Int      @id @default(autoincrement())
+  name      String
+  number    String
+  rarity    String?
+  imageUrl  String?
+  tcgdexId  String   @unique
+  setId     Int
+  set       CardSet  @relation(fields: [setId], references: [id])
+  products  Product[]
+  createdAt DateTime @default(now())
+}
+
+model Product {
+  id             Int             @id @default(autoincrement())
+  name           String
+  type           String          // SINGLE, PACK, BOX, ACCESSORY, OTHER
+  description    String?
+  imageUrl       String?
+  barcode        String?         @unique
+  quantity       Int             @default(0)
+  buyPrice       Float           @default(0)
+  sellPrice      Float           @default(0)
+  minStock       Int             @default(1)
+  gameId         Int
+  game           Game            @relation(fields: [gameId], references: [id])
+  cardId         Int?
+  card           Card?           @relation(fields: [cardId], references: [id])
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  transactionItems TransactionItem[]
+}
+
+model Transaction {
+  id        Int               @id @default(autoincrement())
+  type      String            // VENTA, COMPRA, DEVOLUCION
+  date      DateTime          @default(now())
+  total     Float
+  note      String?
+  items     TransactionItem[]
+  createdAt DateTime          @default(now())
+}
+
+model TransactionItem {
+  id            Int         @id @default(autoincrement())
+  transactionId Int
+  transaction   Transaction @relation(fields: [transactionId], references: [id])
+  productId     Int
+  product       Product     @relation(fields: [productId], references: [id])
+  quantity      Int
+  unitPrice     Float
+}
+
+model CashFlow {
+  id          Int      @id @default(autoincrement())
+  type        String   // INGRESO, EGRESO
+  amount      Float
+  category    String
+  date        DateTime @default(now())
+  description String?
+  reference   String?
+  createdAt   DateTime @default(now())
+}
