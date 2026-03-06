@@ -18,6 +18,11 @@ function createPrismaClient() {
   return new PrismaClient({ adapter } as any);
 }
 
-export const prisma = globalForPrisma.prisma || createPrismaClient();
+// In production (Vercel serverless), we must NOT cache the client globally 
+// if it was instantiated during the build phase with the dummy URL.
+// We only use the global singleton in development to survive HMR.
+export const prisma =
+  process.env.NODE_ENV === "production"
+    ? createPrismaClient()
+    : globalForPrisma.prisma || (globalForPrisma.prisma = createPrismaClient());
 
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
