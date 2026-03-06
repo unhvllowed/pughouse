@@ -1,7 +1,3 @@
-import { config } from "dotenv";
-config({ path: ".env.local", override: true });
-config();
-
 import { PrismaClient } from "@prisma/client";
 import { PrismaLibSql } from "@prisma/adapter-libsql";
 import { createClient } from "@libsql/client";
