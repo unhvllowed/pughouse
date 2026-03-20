@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getTcgSetsMap } from "@/lib/services/tcgdex";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -10,50 +11,68 @@ export async function GET(req: NextRequest) {
   const illustrator = searchParams.get("illustrator") || "";
   const rarity = searchParams.get("rarity") || "";
   const category = searchParams.get("category") || "";
-  const page = searchParams.get("page") || "1";
+  const page = parseInt(searchParams.get("page") || "1");
+  const itemsPerPage = 24;
 
+  // 1. Build TCGdex URL WITHOUT pagination to get ALL results
   let url = `${TCGDEX_BASE}/cards?`;
   if (name) url += `name=${encodeURIComponent(name)}&`;
   if (setName) url += `set.name=${encodeURIComponent(setName)}&`;
   if (illustrator) url += `illustrator=${encodeURIComponent(illustrator)}&`;
   if (rarity) url += `rarity=${encodeURIComponent(rarity)}&`;
   if (category) url += `category=${encodeURIComponent(category)}&`;
-  
-  // Apply pagination using TCGdex native syntax. We load 28 cards per page.
-  url += `pagination:page=${page}&pagination:itemsPerPage=28&`;
 
   try {
-    const res = await fetch(url, { next: { revalidate: 3600 } });
+    // 2. Fetch shallow results and sets map
+    const [res, setsMap] = await Promise.all([
+      fetch(url, { next: { revalidate: 3600 } }),
+      getTcgSetsMap(lang)
+    ]);
+
     if (!res.ok) throw new Error("Error al obtener cartas");
-    const shallowData = await res.json();
-    
-    // TCGdex search endpoint ONLY returns { id, localId, name, image }. 
-    // We already paginated the original TCGdex call to 24 items, so we can hydrate ALL returned results safely.
-    const cardsToHydrate = (Array.isArray(shallowData) ? shallowData : []);
-    
+    const allShallowCards = await res.json();
+    if (!Array.isArray(allShallowCards)) return NextResponse.json([]);
+
+    // 3. Sort ALL cards by releaseDate using the setsMap
+    // The TCGdex ID is usually 'setid-localid'
+    allShallowCards.sort((a: any, b: any) => {
+      const setIdA = a.id.split('-')[0];
+      const setIdB = b.id.split('-')[0];
+      const dateA = setsMap[setIdA] || "0000-00-00";
+      const dateB = setsMap[setIdB] || "0000-00-00";
+
+      if (dateA !== dateB) return dateB.localeCompare(dateA);
+      return b.id.localeCompare(a.id); // Tie-breaker
+    });
+
+    // 4. Paginate the sorted list
+    const startIndex = (page - 1) * itemsPerPage;
+    const paginatedCards = allShallowCards.slice(startIndex, startIndex + itemsPerPage);
+
+    // 5. Hydrate ONLY the current page
     const hydratedCards = await Promise.all(
-      cardsToHydrate.map(async (card) => {
+      paginatedCards.map(async (card: any) => {
         try {
           const detailRes = await fetch(`${TCGDEX_BASE}/cards/${card.id}`, {
-            next: { revalidate: 86400 } // Caché súper largo para no matar la red
+            next: { revalidate: 86400 }
           });
           if (detailRes.ok) {
             const detail = await detailRes.json();
             return {
               ...card,
               set: detail.set,
-              rarity: detail.rarity
+              rarity: detail.rarity,
+              releaseDate: detail.set?.releaseDate 
             };
           }
-        } catch (e) {
-          // silently ignore individual errors
-        }
-        return card; // Fallback to shallow if fetch fails
+        } catch (e) {}
+        return card;
       })
     );
     
     return NextResponse.json(hydratedCards);
-  } catch {
+  } catch (error) {
+    console.error("Cards search error:", error);
     return NextResponse.json({ error: "Error al conectar con TCGdex" }, { status: 500 });
   }
 }

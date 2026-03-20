@@ -1,3 +1,12 @@
+export async function getTcgSetsMap(lang: string = "es") {
+  const sets = await getTcgSets(lang);
+  const map: Record<string, string> = {};
+  sets.forEach((set: any) => {
+    map[set.id] = set.releaseDate || "0000-00-00";
+  });
+  return map;
+}
+
 export async function getTcgSets(lang: string = "es") {
   const TCGDEX_BASE = `https://api.tcgdex.net/v2/${lang}`;
 
