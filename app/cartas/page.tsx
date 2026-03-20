@@ -39,8 +39,12 @@ export default function CartasPage() {
   const [activeTab, setActiveTab] = useState<"cartas" | "sets">("cartas");
   const [lang, setLang] = useState<"es" | "en">("es");
   const [selectedCard, setSelectedCard] = useState<TcgCard | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [cardDetails, setCardDetails] = useState<any>(null);
   const [priceLoading, setPriceLoading] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [tcgMatchPrices, setTcgMatchPrices] = useState<any[]>([]);
+  const [tcgMatchLoading, setTcgMatchLoading] = useState(false);
 
   useEffect(() => {
     // Cargar sets cuando cambie el idioma o al montar
@@ -70,7 +74,11 @@ export default function CartasPage() {
   useEffect(() => {
     if (selectedCard) {
       setCardDetails(null);
+      setTcgMatchPrices([]);
       setPriceLoading(true);
+      setTcgMatchLoading(true);
+
+      // Fetch TCGDex prices
       fetch(`/api/prices/${selectedCard.id}?lang=${lang}`)
         .then((res) => res.json())
         .then((data) => {
@@ -80,6 +88,72 @@ export default function CartasPage() {
         })
         .catch(() => {})
         .finally(() => setPriceLoading(false));
+
+      // Fetch TCGMatch prices
+      fetch(`/api/prices/tcgmatch?q=${encodeURIComponent(selectedCard.name)}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data?.success && data.data?.items) {
+            const items = data.data.items;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const validMatches = items.filter((item: any) => {
+               const itemName = item.name.toLowerCase();
+               const cardName = selectedCard.name.toLowerCase();
+               
+               // Rule 1: Must contain the card's base name
+               if (!itemName.includes(cardName)) return false;
+
+               const skuStr = item.sku ? String(item.sku) : "";
+               const itemNumber = item.card?.data?.number ? String(item.card.data.number) : "";
+               
+               // Rule 2: Robust Local ID / Variant matcher
+               const cleanId = (id: string) => id.trim().replace(/^0+/, ''); // "053" -> "53", "TG01" -> "TG01"
+               const targetId = cleanId(selectedCard.localId);
+               
+               const skuPrefix = cleanId(skuStr.split('/')[0]);
+               const skuSuffix = cleanId(skuStr.split('-').pop() || "");
+               const cleanedNumber = cleanId(itemNumber);
+
+               const matchesLocalId = 
+                   cleanedNumber === targetId || 
+                   cleanId(skuStr) === targetId || 
+                   skuPrefix === targetId ||
+                   skuSuffix === targetId ||
+                   itemName.includes(` ${selectedCard.localId.toLowerCase()} `) ||
+                   itemName.endsWith(` ${selectedCard.localId.toLowerCase()}`) ||
+                   itemName.includes(`${selectedCard.localId.toLowerCase()}/`) ||
+                   itemName.includes(`#${selectedCard.localId.toLowerCase()}`);
+               
+               if (matchesLocalId) return true;
+
+               // Extract explicit variant number from title if available (e.g. 295/217 or #295)
+               const explicitTitleSlashMatch = itemName.match(/\b([a-z0-9]+)\/[a-z0-9]+\b/);
+               const explicitTitleHashMatch = itemName.match(/#([a-z0-9]+)\b/);
+               const explicitTitleNumber = explicitTitleSlashMatch ? cleanId(explicitTitleSlashMatch[1]) : (explicitTitleHashMatch ? cleanId(explicitTitleHashMatch[1]) : "");
+
+               // Rule 3: If TCGMatch provided an explicit SKU/Number OR we extracted an explicit format (e.g. XXX/YYY) from the title
+               // and it DID NOT match the local ID above, it is definitively a DIFFERENT variant of this pokemon. Filter it out!
+               if (skuStr || itemNumber || explicitTitleNumber) return false;
+
+               // Rule 4: If no explicit number is provided by the seller, check if the Set Edition matches
+               const matchesSet = item.dataCard?.edition?.toLowerCase() === selectedCard.set?.name?.toLowerCase();
+               if (matchesSet) return true;
+
+               return false;
+            });
+            
+            if (validMatches.length > 0) {
+               setTcgMatchPrices(validMatches);
+            } else {
+               // Fallback: If we couldn't match IDs or Sets, just match the name exactly (e.g ProMos with weird rules)
+               // eslint-disable-next-line @typescript-eslint/no-explicit-any
+               const exactNameMatches = items.filter((item: any) => item.name.toLowerCase() === selectedCard.name.toLowerCase());
+               setTcgMatchPrices(exactNameMatches);
+            }
+          }
+        })
+        .catch(() => {})
+        .finally(() => setTcgMatchLoading(false));
     }
   }, [selectedCard, lang]);
 
@@ -391,19 +465,65 @@ export default function CartasPage() {
               <div>
                 <h4 style={{ fontSize: 18, marginBottom: 12, borderBottom: "1px solid var(--border)", paddingBottom: 8 }}>Precios de Mercado (USD/EUR)</h4>
                 
-                {priceLoading ? (
+                {priceLoading || tcgMatchLoading ? (
                   <div style={{ padding: 24, textAlign: "center", color: "var(--text-muted)" }}>Cargando datos del mercado...</div>
-                ) : cardDetails?.pricing ? (
+                ) : cardDetails?.pricing || tcgMatchPrices.length > 0 ? (
                   <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                     
+                    {/* TCGMatch (Chile) */}
+                    {tcgMatchPrices.length > 0 && (
+                      <div style={{ border: "1px solid rgba(255, 152, 0, 0.3)", borderRadius: 8, overflow: "hidden" }}>
+                        <div style={{ background: "rgba(255, 152, 0, 0.1)", padding: "12px 16px", fontWeight: 600, color: "#ff9800", fontSize: 16 }}>
+                          TCGMatch 🇨🇱 (CLP)
+                        </div>
+                        <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
+                          {(() => {
+                            const validPrices = tcgMatchPrices.map(i => i.price).filter(p => typeof p === "number" && p > 0).sort((a,b) => a - b);
+                            const lowestPrice = validPrices.length > 0 ? validPrices[0] : null;
+                            const highestPrice = validPrices.length > 0 ? validPrices[validPrices.length - 1] : null;
+                            
+                            // Calculate Average (Promedio)
+                            let calculatedAverage = null;
+                            if (validPrices.length > 0) {
+                              const sum = validPrices.reduce((acc, curr) => acc + curr, 0);
+                              calculatedAverage = sum / validPrices.length;
+                            }
+                            
+                            return (
+                              <div>
+                                <h5 style={{ marginBottom: 8, fontSize: 13, color: "var(--text-secondary)" }}>
+                                  Resumen de publicaciones disponibles ({tcgMatchPrices.length})
+                                </h5>
+                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, textAlign: "center", fontSize: 13 }}>
+                                  <div style={{ background: "var(--bg)", padding: 8, borderRadius: 6 }}>
+                                    <div style={{ color: "var(--text-muted)", marginBottom: 4 }}>Más bajo</div>
+                                    <div style={{ fontWeight: 600 }}>{lowestPrice ? `$${lowestPrice.toLocaleString("es-CL")}` : "-"}</div>
+                                  </div>
+                                  <div style={{ background: "var(--bg)", padding: 8, borderRadius: 6 }}>
+                                    <div style={{ color: "var(--text-muted)", marginBottom: 4 }}>Más alto</div>
+                                    <div style={{ fontWeight: 600 }}>{highestPrice ? `$${highestPrice.toLocaleString("es-CL")}` : "-"}</div>
+                                  </div>
+                                  <div style={{ background: "var(--bg)", padding: 8, borderRadius: 6 }}>
+                                    <div style={{ color: "var(--text-muted)", marginBottom: 4 }}>Promedio</div>
+                                    <div style={{ fontWeight: 600, color: "#4caf50" }}>{calculatedAverage ? `$${Math.round(calculatedAverage).toLocaleString("es-CL")}` : "-"}</div>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      </div>
+                    )}
+
                     {/* TCGPlayer */}
-                    {cardDetails.pricing.tcgplayer && (
+                    {cardDetails?.pricing?.tcgplayer && (
                       <div style={{ border: "1px solid rgba(33, 150, 243, 0.3)", borderRadius: 8, overflow: "hidden" }}>
                         <div style={{ background: "rgba(33, 150, 243, 0.1)", padding: "12px 16px", fontWeight: 600, color: "#2196F3", fontSize: 16 }}>
                           TCGPlayer (USD)
                         </div>
                         <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
-                          {Object.entries(cardDetails.pricing.tcgplayer).filter(([k,v]) => typeof v === 'object' && v !== null).map(([variant, prices]: [string, any]) => (
+                          {/* eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any */}
+                          {Object.entries(cardDetails.pricing.tcgplayer).filter(([_,v]) => typeof v === 'object' && v !== null).map(([variant, prices]: [string, any]) => (
                              <div key={variant}>
                                <h5 style={{ textTransform: "capitalize", marginBottom: 8, fontSize: 14, color: "var(--text-secondary)" }}>Foil / Normal: {variant}</h5>
                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, textAlign: "center", fontSize: 13 }}>
@@ -430,7 +550,7 @@ export default function CartasPage() {
                     )}
 
                     {/* Cardmarket */}
-                    {cardDetails.pricing.cardmarket && (
+                    {cardDetails?.pricing?.cardmarket && (
                       <div style={{ border: "1px solid rgba(233, 30, 99, 0.3)", borderRadius: 8, overflow: "hidden" }}>
                         <div style={{ background: "rgba(233, 30, 99, 0.1)", padding: "12px 16px", fontWeight: 600, color: "#e91e63", fontSize: 16 }}>
                           Cardmarket (EUR)

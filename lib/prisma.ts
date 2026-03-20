@@ -9,10 +9,8 @@ function createPrismaClient() {
   // so the build doesn't crash.
   const url = process.env.TURSO_DATABASE_URL || "libsql://dummy-url.turso.io";
 
-  // @libsql/client accepts auth token embedded in URL as ?authToken=...
-  const libsql = createClient({ url });
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const adapter = new PrismaLibSql(libsql as any);
+  // In Prisma 7, the adapter takes the config options directly, NOT an instantiated client.
+  const adapter = new PrismaLibSql({ url });
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return new PrismaClient({ adapter } as any);
 }
