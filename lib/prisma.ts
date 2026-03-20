@@ -1,25 +1,23 @@
 import { PrismaClient } from "@prisma/client";
 import { PrismaLibSql } from "@prisma/adapter-libsql";
-import { createClient } from "@libsql/client";
-const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
+
+const globalForPrisma = globalThis as unknown as {
+  prisma: PrismaClient | undefined;
+};
 
 function createPrismaClient() {
-  // During Vercel build, Next.js evaluates routes which triggers this file.
-  // If the env var isn't set (e.g., during static generation), provide a dummy URL 
-  // so the build doesn't crash.
   const url = process.env.TURSO_DATABASE_URL || "libsql://dummy-url.turso.io";
+  const authToken = process.env.TURSO_AUTH_TOKEN;
 
   // In Prisma 7, the adapter takes the config options directly, NOT an instantiated client.
-  const adapter = new PrismaLibSql({ url });
+  const adapter = new PrismaLibSql({ url, authToken });
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return new PrismaClient({ adapter } as any);
 }
 
-// In production (Vercel serverless), we must NOT cache the client globally 
-// if it was instantiated during the build phase with the dummy URL.
-// We only use the global singleton in development to survive HMR.
 export const prisma =
-  process.env.NODE_ENV === "production"
-    ? createPrismaClient()
-    : globalForPrisma.prisma || (globalForPrisma.prisma = createPrismaClient());
+  globalForPrisma.prisma || (globalForPrisma.prisma = createPrismaClient());
 
+if (process.env.NODE_ENV !== "production") {
+  globalForPrisma.prisma = prisma;
+}

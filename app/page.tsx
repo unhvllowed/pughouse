@@ -1,23 +1,9 @@
-"use client";
-
-import { useEffect, useState } from "react";
 import Sidebar from "./components/Sidebar";
+import { getInventory } from "@/lib/services/inventory";
+import { getTransactions } from "@/lib/services/transactions";
+import { getCashFlowData } from "@/lib/services/cashflow";
 
-interface Summary {
-  totalInventario: number;
-  ventasHoy: number;
-  balance: number;
-  stockBajo: number;
-}
-
-interface Transaction {
-  id: number;
-  type: string;
-  total: number;
-  date: string;
-  note: string;
-  items: { product: { name: string }; quantity: number }[];
-}
+export const dynamic = "force-dynamic";
 
 function formatCLP(n: any) {
   const num = typeof n === "number" ? n : parseFloat(String(n));
@@ -25,53 +11,32 @@ function formatCLP(n: any) {
   return new Intl.NumberFormat("es-CL", { style: "currency", currency: "CLP" }).format(num);
 }
 
-export default function DashboardPage() {
-  const [summary, setSummary] = useState<Summary | null>(null);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [loading, setLoading] = useState(true);
+export default async function DashboardPage() {
+  const hoy = new Date();
+  const currentMonth = hoy.toISOString().slice(0, 7);
 
-  useEffect(() => {
-    async function load() {
-      try {
-        const [invRes, txRes, cfRes] = await Promise.all([
-          fetch("/api/inventory"),
-          fetch("/api/transactions?limit=6"),
-          fetch(`/api/cashflow?month=${new Date().toISOString().slice(0, 7)}`),
-        ]);
-        if (!invRes.ok || !txRes.ok || !cfRes.ok) {
-          throw new Error("Error fetching dashboard data");
-        }
+  // Fetch data on the server
+  const [inv, { transactions: txs }, cfData] = await Promise.all([
+    getInventory(),
+    getTransactions({ limit: 6 }),
+    getCashFlowData(currentMonth),
+  ]);
 
-        const inv = await invRes.json();
-        const { transactions: txs } = await txRes.json();
-        const { summary: cf } = await cfRes.json();
+  const totalInventario = inv.reduce(
+    (s, i) => s + (i.quantity || 0) * (i.sellPrice || 0),
+    0
+  );
+  const stockBajo = inv.filter((i) => i.quantity <= i.minStock).length;
 
-        const totalInventario = inv.reduce(
-          (s: number, i: { quantity: number; sellPrice: number }) => s + (i.quantity || 0) * (i.sellPrice || 0),
-          0
-        );
-        const stockBajo = inv.filter((i: { quantity: number; minStock: number }) => i.quantity <= i.minStock).length;
-
-        const hoy = new Date().toDateString();
-        const ventasHoy = txs
-          .filter((t: Transaction) => t.type === "VENTA" && new Date(t.date).toDateString() === hoy)
-          .reduce((s: number, t: Transaction) => s + t.total, 0);
-
-        setSummary({ totalInventario, ventasHoy, balance: cf.balance, stockBajo });
-        setTransactions(txs);
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setLoading(false);
-      }
-    }
-    load();
-  }, []);
+  const hoyStr = hoy.toDateString();
+  const ventasHoy = txs
+    .filter((t) => t.type === "VENTA" && new Date(t.date).toDateString() === hoyStr)
+    .reduce((s, t) => s + t.total, 0);
 
   const kpis = [
     {
       label: "Valor del Inventario",
-      value: summary ? formatCLP(summary.totalInventario) : "...",
+      value: formatCLP(totalInventario),
       icon: "📦",
       color: "var(--blue)",
       bg: "var(--blue-light)",
@@ -79,7 +44,7 @@ export default function DashboardPage() {
     },
     {
       label: "Ventas de Hoy",
-      value: summary ? formatCLP(summary.ventasHoy) : "...",
+      value: formatCLP(ventasHoy),
       icon: "💳",
       color: "var(--green)",
       bg: "var(--green-light)",
@@ -87,7 +52,7 @@ export default function DashboardPage() {
     },
     {
       label: "Balance del Mes",
-      value: summary ? formatCLP(summary.balance) : "...",
+      value: formatCLP(cfData.summary.balance),
       icon: "💰",
       color: "var(--accent)",
       bg: "var(--accent-light)",
@@ -95,7 +60,7 @@ export default function DashboardPage() {
     },
     {
       label: "Stock Bajo",
-      value: summary ? String(summary.stockBajo) : "...",
+      value: String(stockBajo),
       icon: "⚠️",
       color: "var(--yellow)",
       bg: "var(--yellow-light)",
@@ -110,7 +75,7 @@ export default function DashboardPage() {
         <div className="main-header">
           <h2>🏠 Dashboard</h2>
           <span style={{ fontSize: 14, color: "var(--text-muted)" }}>
-            {new Date().toLocaleDateString("es-CL", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+            {hoy.toLocaleDateString("es-CL", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
           </span>
         </div>
         <div className="page-content">
@@ -123,7 +88,7 @@ export default function DashboardPage() {
                 <div className="kpi-info">
                   <div className="kpi-label">{k.label}</div>
                   <div className="kpi-value" style={{ color: k.color }}>
-                    {loading ? <span className="skeleton" style={{ display: "inline-block", width: 120, height: 28 }} /> : k.value}
+                    {k.value}
                   </div>
                   <div className="kpi-sub">{k.sub}</div>
                 </div>
@@ -136,7 +101,7 @@ export default function DashboardPage() {
           </div>
 
           <div className="table-container">
-            {transactions.length === 0 && !loading ? (
+            {txs.length === 0 ? (
               <div className="empty-state">
                 <div className="empty-icon">🧾</div>
                 <h3>Sin movimientos</h3>
@@ -154,7 +119,7 @@ export default function DashboardPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {transactions.map((tx) => (
+                  {txs.map((tx) => (
                     <tr key={tx.id}>
                       <td>
                         <span className={`badge ${tx.type === "VENTA" ? "badge-green" : tx.type === "COMPRA" ? "badge-blue" : "badge-yellow"}`}>
@@ -162,7 +127,7 @@ export default function DashboardPage() {
                         </span>
                       </td>
                       <td className="text-secondary">
-                        {tx.items.map((i) => `${i.product.name} x${i.quantity}`).join(", ")}
+                        {tx.items.map((i: any) => `${i.product.name} x${i.quantity}`).join(", ")}
                       </td>
                       <td className="text-green" style={{ fontWeight: 600 }}>{formatCLP(tx.total)}</td>
                       <td className="text-muted">{new Date(tx.date).toLocaleDateString("es-CL")}</td>

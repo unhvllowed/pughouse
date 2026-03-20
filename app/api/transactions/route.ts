@@ -16,25 +16,16 @@ interface TransactionRequestBody {
   items: TransactionItemInput[];
 }
 
+import { getTransactions } from "@/lib/services/transactions";
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const type = searchParams.get("type");
+  const type = searchParams.get("type") || undefined;
   const page = parseInt(searchParams.get("page") || "1");
   const limit = parseInt(searchParams.get("limit") || "20");
 
-  const transactions = await prisma.transaction.findMany({
-    where: { ...(type && { type }) },
-    include: {
-      items: { include: { product: { include: { game: true } } } },
-    },
-    orderBy: { date: "desc" },
-    skip: (page - 1) * limit,
-    take: limit,
-  });
-
-  const total = await prisma.transaction.count({ where: { ...(type && { type }) } });
-
-  return NextResponse.json({ transactions, total, page, limit });
+  const data = await getTransactions({ type, page, limit });
+  return NextResponse.json(data);
 }
 
 export async function POST(req: NextRequest) {

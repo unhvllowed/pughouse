@@ -10,43 +10,16 @@ type ProductWithRelations = Prisma.ProductGetPayload<{
   };
 }>;
 
+import { getInventory } from "@/lib/services/inventory";
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const gameId = searchParams.get("gameId");
+  const gameId = searchParams.get("gameId") ? Number(searchParams.get("gameId")) : undefined;
   const lowStock = searchParams.get("lowStock") === "true";
-  const search = searchParams.get("search") || "";
-  const barcode = searchParams.get("barcode") || "";
+  const search = searchParams.get("search") || undefined;
 
-  const items = await prisma.product.findMany({
-    where: {
-      AND: [
-        barcode ? { barcode: barcode } : {},
-        gameId ? { gameId: parseInt(gameId) } : {},
-        lowStock ? { OR: [{ quantity: { lte: 0 } }, { quantity: { lte: prisma.product.fields.minStock } }] } : {},
-        search ? {
-          OR: [
-            { name: { contains: search } },
-            { barcode: { contains: search } },
-          ]
-        } : {},
-      ]
-    },
-    include: {
-      game: true,
-      card: { include: { set: true } },
-    },
-    orderBy: { updatedAt: "desc" },
-  });
-
-  const safeItems = (items as ProductWithRelations[]).map((item: ProductWithRelations) => ({
-    ...item,
-    quantity: Number(item.quantity) || 0,
-    buyPrice: Number(item.buyPrice) || 0,
-    sellPrice: Number(item.sellPrice) || 0,
-    minStock: Number(item.minStock) || 1,
-  }));
-
-  return NextResponse.json(safeItems);
+  const items = await getInventory({ search, gameId, lowStock });
+  return NextResponse.json(items);
 }
 
 export async function POST(req: NextRequest) {

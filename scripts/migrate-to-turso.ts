@@ -111,24 +111,35 @@ CREATE TABLE IF NOT EXISTS "CashFlow" (
 `;
 
 async function migrateTable(table: string, columns: string[]) {
-  const result = await local.execute(`SELECT ${columns.map(c => `"${c}"`).join(", ")} FROM "${table}"`);
-  if (result.rows.length === 0) { console.log(`  ${table}: 0 rows (skip)`); return; }
+  try {
+    const result = await local.execute(`SELECT ${columns.map(c => `"${c}"`).join(", ")} FROM "${table}"`);
+    if (result.rows.length === 0) {
+      console.log(`  ${table}: 0 rows (skip)`);
+      return;
+    }
 
-  let ok = 0;
-  for (const row of result.rows) {
-    const phs = columns.map(() => "?").join(", ");
-    const args = columns.map((c) => row[c] ?? null);
-    try {
-      await turso.execute({
-        sql: `INSERT OR IGNORE INTO "${table}" (${columns.map(c => `"${c}"`).join(", ")}) VALUES (${phs})`,
-        args,
-      });
-      ok++;
-    } catch (e) {
-      console.error(`  ✗ ${table}:`, (e as Error).message.slice(0, 80));
+    let ok = 0;
+    for (const row of result.rows) {
+      const phs = columns.map(() => "?").join(", ");
+      const args = columns.map((c) => row[c] ?? null);
+      try {
+        await turso.execute({
+          sql: `INSERT OR IGNORE INTO "${table}" (${columns.map((c) => `"${c}"`).join(", ")}) VALUES (${phs})`,
+          args,
+        });
+        ok++;
+      } catch (e) {
+        console.error(`  ✗ ${table}:`, (e as Error).message.slice(0, 80));
+      }
+    }
+    console.log(`  ✅ ${table}: ${ok}/${result.rows.length} filas`);
+  } catch (e) {
+    if ((e as Error).message.includes("no such table")) {
+      console.log(`  ℹ️ ${table}: No existe localmente, omitiendo migración de datos.`);
+    } else {
+      console.error(`  Error migrando ${table}:`, (e as Error).message);
     }
   }
-  console.log(`  ✅ ${table}: ${ok}/${result.rows.length} filas`);
 }
 
 async function main() {

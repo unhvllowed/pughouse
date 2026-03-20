@@ -4,6 +4,7 @@ import { getCashFlowData } from "@/lib/services/cashflow";
 
 // Make this route dynamic so it recalculates on every request
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 function toLocalDate(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
