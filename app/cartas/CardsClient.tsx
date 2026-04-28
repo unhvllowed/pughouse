@@ -398,18 +398,22 @@ export default function CardsClient({
                           {Object.entries(cardDetails.pricing.tcgplayer).filter(([k, v]) => typeof v === 'object' && v !== null).map(([variant, prices]: [string, any]) => (
                             <div key={variant}>
                               <h5 style={{ textTransform: "capitalize", marginBottom: 8, fontSize: 14, color: "var(--text-secondary)" }}>Foil / Normal: {variant}</h5>
-                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, textAlign: "center", fontSize: 13 }}>
+                              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8, textAlign: "center", fontSize: 13 }}>
                                 <div style={{ background: "var(--bg)", padding: 8, borderRadius: 6 }}>
                                   <div style={{ color: "var(--text-muted)", marginBottom: 4 }}>Bajo</div>
-                                  <div style={{ fontWeight: 600 }}>{prices.lowPrice ? `$${prices.lowPrice.toFixed(2)}` : "-"}</div>
+                                  <div style={{ fontWeight: 600 }}>{prices.low ? `$${prices.low.toFixed(2)}` : "-"}</div>
                                 </div>
                                 <div style={{ background: "var(--bg)", padding: 8, borderRadius: 6 }}>
                                   <div style={{ color: "var(--text-muted)", marginBottom: 4 }}>Medio</div>
-                                  <div style={{ fontWeight: 600 }}>{prices.midPrice ? `$${prices.midPrice.toFixed(2)}` : "-"}</div>
+                                  <div style={{ fontWeight: 600 }}>{prices.mid ? `$${prices.mid.toFixed(2)}` : "-"}</div>
                                 </div>
                                 <div style={{ background: "var(--bg)", padding: 8, borderRadius: 6 }}>
-                                  <div style={{ color: "var(--text-muted)", marginBottom: 4 }}>Mercado</div>
-                                  <div style={{ fontWeight: 600, color: "#4caf50" }}>{prices.marketPrice ? `$${prices.marketPrice.toFixed(2)}` : "-"}</div>
+                                  <div style={{ color: "var(--text-muted)", marginBottom: 4 }}>Alto</div>
+                                  <div style={{ fontWeight: 600 }}>{prices.high ? `$${prices.high.toFixed(2)}` : "-"}</div>
+                                </div>
+                                <div style={{ background: "var(--bg)", padding: 8, borderRadius: 6 }}>
+                                  <div style={{ color: "var(--text-muted)", marginBottom: 4 }}>Último Vendido</div>
+                                  <div style={{ fontWeight: 600, color: "#2196F3" }}>{prices.market ? `$${prices.market.toFixed(2)}` : "-"}</div>
                                 </div>
                               </div>
                             </div>
