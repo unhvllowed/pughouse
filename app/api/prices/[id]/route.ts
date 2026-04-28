@@ -151,7 +151,7 @@ export async function GET(
       const firstVariant = Object.values(pricing.tcgplayer)[0] as any;
       const usdMarket = firstVariant?.market || pricing.tcgplayer.market;
       if (usdMarket) {
-        tcgmatchData.stats.lastSold = Math.round(usdMarket * 950); // Approx conversion
+        (tcgmatchData.stats as any).lastSold = Math.round(usdMarket * 950); // Approx conversion
       }
     }
 
