@@ -114,16 +114,45 @@ export async function GET(
     // --- End TCGMatch Integration ---
 
     // Standardize pricing object for frontend
-    const pricing = data.pricing || {};
-    
-    // Fallback for TCGPlayer if not in .pricing but in .tcgplayer
-    if (!pricing.tcgplayer && data.tcgplayer) {
-      pricing.tcgplayer = data.tcgplayer.prices || data.tcgplayer;
+    const rawPricing = data.pricing || {};
+    const tcgplayerRaw = rawPricing.tcgplayer || data.tcgplayer?.prices || data.tcgplayer || {};
+    const cardmarketRaw = rawPricing.cardmarket || data.cardmarket?.prices || data.cardmarket || {};
+
+    const pricing = {
+      tcgplayer: {} as any,
+      cardmarket: {
+        low: cardmarketRaw.low ?? cardmarketRaw.lowPrice ?? null,
+        mid: cardmarketRaw.avg ?? cardmarketRaw.averagePrice ?? null,
+        high: cardmarketRaw.trend ?? cardmarketRaw.trendPrice ?? null,
+        market: cardmarketRaw.avg1 ?? cardmarketRaw.marketPrice ?? null,
+        updated: cardmarketRaw.updated,
+        avg7: cardmarketRaw.avg7,
+        avg30: cardmarketRaw.avg30,
+        trend: cardmarketRaw.trend,
+      }
+    };
+
+    // Map TCGPlayer variants if they exist
+    if (tcgplayerRaw && typeof tcgplayerRaw === 'object') {
+      Object.entries(tcgplayerRaw).forEach(([variant, prices]: [string, any]) => {
+        if (prices && typeof prices === 'object') {
+          pricing.tcgplayer[variant] = {
+            low: prices.low ?? prices.lowPrice ?? null,
+            mid: prices.mid ?? prices.midPrice ?? null,
+            high: prices.high ?? prices.highPrice ?? null,
+            market: prices.market ?? prices.marketPrice ?? null,
+          };
+        }
+      });
     }
-    
-    // Fallback for Cardmarket if not in .pricing but in .cardmarket
-    if (!pricing.cardmarket && data.cardmarket) {
-      pricing.cardmarket = data.cardmarket.prices || data.cardmarket;
+
+    // Add USD to CLP conversion for TCGMatch "Last Sold" reference
+    if (tcgmatchData && tcgmatchData.stats) {
+      const firstVariant = Object.values(pricing.tcgplayer)[0] as any;
+      const usdMarket = firstVariant?.market || pricing.tcgplayer.market;
+      if (usdMarket) {
+        tcgmatchData.stats.lastSold = Math.round(usdMarket * 950); // Approx conversion
+      }
     }
 
     return NextResponse.json({

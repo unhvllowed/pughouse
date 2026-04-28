@@ -344,9 +344,9 @@ export default function CardsClient({
                           <span>TCGMatch 🇨🇱 (CLP)</span>
                         </div>
                         <div style={{ padding: 16 }}>
-                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, textAlign: "center", marginBottom: 16 }}>
+                          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8, textAlign: "center", marginBottom: 16 }}>
                             <div style={{ background: "var(--bg)", padding: 10, borderRadius: 6, border: "1px solid var(--border)" }}>
-                              <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>Más Bajo</div>
+                              <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>Mínimo</div>
                               <div style={{ fontSize: 15, fontWeight: 700, color: "#4caf50" }}>
                                 {cardDetails.tcgmatch.stats.lowest ? `$${cardDetails.tcgmatch.stats.lowest.toLocaleString("es-CL")}` : "-"}
                               </div>
@@ -358,9 +358,15 @@ export default function CardsClient({
                               </div>
                             </div>
                             <div style={{ background: "var(--bg)", padding: 10, borderRadius: 6, border: "1px solid var(--border)" }}>
-                              <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>Más Alto</div>
+                              <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>Máximo</div>
                               <div style={{ fontSize: 15, fontWeight: 700 }}>
                                 {cardDetails.tcgmatch.stats.highest ? `$${cardDetails.tcgmatch.stats.highest.toLocaleString("es-CL")}` : "-"}
+                              </div>
+                            </div>
+                            <div style={{ background: "var(--bg)", padding: 10, borderRadius: 6, border: "1px solid var(--border)" }}>
+                              <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>Último Vendido</div>
+                              <div style={{ fontSize: 15, fontWeight: 700, color: "#2196F3" }}>
+                                {cardDetails.tcgmatch.stats.lastSold ? `$${cardDetails.tcgmatch.stats.lastSold.toLocaleString("es-CL")}` : "-"}
                               </div>
                             </div>
                           </div>
@@ -431,24 +437,24 @@ export default function CardsClient({
                         <div style={{ background: "rgba(233, 30, 99, 0.1)", padding: "12px 16px", fontWeight: 600, color: "#e91e63", fontSize: 16 }}>
                           Cardmarket (EUR)
                         </div>
-                        <div style={{ padding: 16, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                          <div style={{ background: "var(--bg)", padding: 10, borderRadius: 6, textAlign: "center" }}>
-                            <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 4 }}>Tendencia</div>
-                            <div style={{ fontSize: 15, fontWeight: 600 }}>{cardDetails.pricing.cardmarket.trend ? `€${cardDetails.pricing.cardmarket.trend.toFixed(2)}` : "-"}</div>
-                          </div>
-                          <div style={{ background: "var(--bg)", padding: 10, borderRadius: 6, textAlign: "center" }}>
-                            <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 4 }}>Promedio 30d</div>
-                            <div style={{ fontSize: 15, fontWeight: 600 }}>{cardDetails.pricing.cardmarket.avg30 ? `€${cardDetails.pricing.cardmarket.avg30.toFixed(2)}` : "-"}</div>
-                          </div>
-                          <div style={{ background: "var(--bg)", padding: 10, borderRadius: 6, textAlign: "center" }}>
-                            <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 4 }}>Promedio 7d</div>
-                            <div style={{ fontSize: 15, fontWeight: 600 }}>{cardDetails.pricing.cardmarket.avg7 ? `€${cardDetails.pricing.cardmarket.avg7.toFixed(2)}` : "-"}</div>
-                          </div>
+                        <div style={{ padding: 16, display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8 }}>
                           <div style={{ background: "var(--bg)", padding: 10, borderRadius: 6, textAlign: "center" }}>
                             <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 4 }}>Mínimo</div>
                             <div style={{ fontSize: 15, fontWeight: 600, color: "#4caf50" }}>{cardDetails.pricing.cardmarket.low ? `€${cardDetails.pricing.cardmarket.low.toFixed(2)}` : "-"}</div>
                           </div>
-                          <div style={{ gridColumn: "span 2", fontSize: 11, color: "var(--text-muted)", textAlign: "right", marginTop: 4 }}>
+                          <div style={{ background: "var(--bg)", padding: 10, borderRadius: 6, textAlign: "center" }}>
+                            <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 4 }}>Promedio</div>
+                            <div style={{ fontSize: 15, fontWeight: 600 }}>{cardDetails.pricing.cardmarket.mid ? `€${cardDetails.pricing.cardmarket.mid.toFixed(2)}` : "-"}</div>
+                          </div>
+                          <div style={{ background: "var(--bg)", padding: 10, borderRadius: 6, textAlign: "center" }}>
+                            <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 4 }}>Tendencia</div>
+                            <div style={{ fontSize: 15, fontWeight: 600 }}>{cardDetails.pricing.cardmarket.high ? `€${cardDetails.pricing.cardmarket.high.toFixed(2)}` : "-"}</div>
+                          </div>
+                          <div style={{ background: "var(--bg)", padding: 10, borderRadius: 6, textAlign: "center" }}>
+                            <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 4 }}>Último Vendido</div>
+                            <div style={{ fontSize: 15, fontWeight: 600, color: "#2196F3" }}>{cardDetails.pricing.cardmarket.market ? `€${cardDetails.pricing.cardmarket.market.toFixed(2)}` : "-"}</div>
+                          </div>
+                          <div style={{ gridColumn: "span 2", fontSize: 10, color: "var(--text-muted)", textAlign: "right", marginTop: 4 }}>
                             Actualizado: {new Date(cardDetails.pricing.cardmarket.updated).toLocaleDateString()}
                           </div>
                         </div>
