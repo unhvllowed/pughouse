@@ -113,8 +113,22 @@ export async function GET(
     }
     // --- End TCGMatch Integration ---
 
+    // Standardize pricing object for frontend
+    const pricing = data.pricing || {};
+    
+    // Fallback for TCGPlayer if not in .pricing but in .tcgplayer
+    if (!pricing.tcgplayer && data.tcgplayer) {
+      pricing.tcgplayer = data.tcgplayer.prices || data.tcgplayer;
+    }
+    
+    // Fallback for Cardmarket if not in .pricing but in .cardmarket
+    if (!pricing.cardmarket && data.cardmarket) {
+      pricing.cardmarket = data.cardmarket.prices || data.cardmarket;
+    }
+
     return NextResponse.json({
       ...data,
+      pricing,
       tcgmatch: tcgmatchData,
     });
   } catch (err) {
