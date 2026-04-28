@@ -6,10 +6,10 @@ import { TcgCard, TcgSet } from "@/lib/types";
 
 // Types are now imported from @/lib/types
 
-export default function CardsClient({ 
-  initialSets 
-}: { 
-  initialSets: TcgSet[] 
+export default function CardsClient({
+  initialSets
+}: {
+  initialSets: TcgSet[]
 }) {
   const [search, setSearch] = useState("");
   const [setNameSearch, setSetNameSearch] = useState("");
@@ -77,7 +77,7 @@ export default function CardsClient({
         } else {
           setCards(prev => [...prev, ...data]);
         }
-        setHasMore(data.length === 24); 
+        setHasMore(data.length === 24);
         setPage(targetPage);
       }
     } catch (error) {
