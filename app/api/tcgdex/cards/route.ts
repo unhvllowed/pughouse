@@ -8,6 +8,7 @@ export async function GET(req: NextRequest) {
 
   const name = searchParams.get("name") || "";
   const setName = searchParams.get("setName") || "";
+  const setId = searchParams.get("setId") || "";
   const illustrator = searchParams.get("illustrator") || "";
   const rarity = searchParams.get("rarity") || "";
   const category = searchParams.get("category") || "";
@@ -17,7 +18,8 @@ export async function GET(req: NextRequest) {
   // 1. Build TCGdex URL WITHOUT pagination to get ALL results
   let url = `${TCGDEX_BASE}/cards?`;
   if (name) url += `name=${encodeURIComponent(name)}&`;
-  if (setName) url += `set.name=${encodeURIComponent(setName)}&`;
+  if (setId) url += `set.id=${encodeURIComponent(setId)}&`;
+  else if (setName) url += `set.name=${encodeURIComponent(setName)}&`;
   if (illustrator) url += `illustrator=${encodeURIComponent(illustrator)}&`;
   if (rarity) url += `rarity=${encodeURIComponent(rarity)}&`;
   if (category) url += `category=${encodeURIComponent(category)}&`;

@@ -13,6 +13,7 @@ export default function CardsClient({
 }) {
   const [search, setSearch] = useState("");
   const [setNameSearch, setSetNameSearch] = useState("");
+  const [setIdSearch, setSetIdSearch] = useState("");
   const [illustrator, setIllustrator] = useState("");
   const [rarity, setRarity] = useState("");
   const [category, setCategory] = useState("");
@@ -27,6 +28,7 @@ export default function CardsClient({
   const [selectedCard, setSelectedCard] = useState<TcgCard | null>(null);
   const [cardDetails, setCardDetails] = useState<any>(null);
   const [priceLoading, setPriceLoading] = useState(false);
+  const [priceTab, setPriceTab] = useState<"tcgmatch" | "tcgplayer" | "cardmarket">("tcgmatch");
 
   useEffect(() => {
     if (selectedCard) {
@@ -44,9 +46,24 @@ export default function CardsClient({
     }
   }, [selectedCard, lang]);
 
-  const searchCards = async (isNewSearch = true, overrideSetName?: string) => {
+  useEffect(() => {
+    if (cardDetails) {
+      if (cardDetails.tcgmatch && cardDetails.tcgmatch.stats && cardDetails.tcgmatch.listings?.length > 0) {
+        setPriceTab("tcgmatch");
+      } else if (cardDetails.pricing?.tcgplayer && Object.keys(cardDetails.pricing.tcgplayer).length > 0) {
+        setPriceTab("tcgplayer");
+      } else if (cardDetails.pricing?.cardmarket) {
+        setPriceTab("cardmarket");
+      } else {
+        setPriceTab("tcgmatch");
+      }
+    }
+  }, [cardDetails]);
+
+  const searchCards = async (isNewSearch = true, overrideSetName?: string, overrideSetId?: string) => {
     const currentSetName = overrideSetName !== undefined ? overrideSetName : setNameSearch;
-    if (!search.trim() && !currentSetName && !illustrator && !rarity && !category) return;
+    const currentSetId = overrideSetId !== undefined ? overrideSetId : setIdSearch;
+    if (!search.trim() && !currentSetName && !currentSetId && !illustrator && !rarity && !category) return;
 
     const targetPage = isNewSearch ? 1 : page + 1;
 
@@ -61,6 +78,7 @@ export default function CardsClient({
     const params = new URLSearchParams();
     params.set("lang", lang);
     if (search) params.set("name", search);
+    if (currentSetId) params.set("setId", currentSetId);
     if (currentSetName) params.set("setName", currentSetName);
     if (illustrator) params.set("illustrator", illustrator);
     if (rarity) params.set("rarity", rarity);
@@ -142,12 +160,17 @@ export default function CardsClient({
                     <div style={{ fontSize: 12, marginBottom: 4, color: "var(--text-muted)" }}>Set / Expansión</div>
                     <select
                       className="form-input"
-                      value={setNameSearch}
-                      onChange={(e) => setSetNameSearch(e.target.value)}
+                      value={setIdSearch}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setSetIdSearch(val);
+                        const matched = sets.find(s => s.id === val);
+                        setSetNameSearch(matched ? matched.name : "");
+                      }}
                     >
                       <option value="">Selecciona un Set</option>
                       {sets.map(set => (
-                        <option key={set.id} value={set.name}>{set.name}</option>
+                        <option key={set.id} value={set.id}>{set.name}</option>
                       ))}
                     </select>
                   </div>
@@ -248,10 +271,11 @@ export default function CardsClient({
                 {sets.map((set) => (
                   <div key={set.id} className="card card-sm" style={{ display: "flex", gap: 12, alignItems: "center", cursor: "pointer" }}
                     onClick={() => {
+                      setSetIdSearch(set.id);
                       setSetNameSearch(set.name);
                       setActiveTab("cartas");
                       setSearch("");
-                      searchCards(true, set.name);
+                      searchCards(true, set.name, set.id);
                     }}>
                     {set.logo ? (
                       <img src={`${set.logo}.webp`} alt={set.name} style={{ height: 40, objectFit: "contain" }} onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
@@ -330,137 +354,193 @@ export default function CardsClient({
 
               {/* Columna Derecha: Precios y Mercado */}
               <div>
-                <h4 style={{ fontSize: 18, marginBottom: 12, borderBottom: "1px solid var(--border)", paddingBottom: 8 }}>Precios de Mercado (USD/EUR)</h4>
+                <h4 style={{ fontSize: 18, marginBottom: 12, borderBottom: "1px solid var(--border)", paddingBottom: 8 }}>Precios de Mercado</h4>
 
                 {priceLoading ? (
                   <div style={{ padding: 24, textAlign: "center", color: "var(--text-muted)" }}>Cargando datos del mercado...</div>
-                ) : cardDetails?.pricing ? (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                ) : cardDetails ? (
+                  <div style={{ display: "flex", flexDirection: "column" }}>
+                    
+                    {/* Price Source Tabs */}
+                    <div style={{ display: "flex", gap: 6, marginBottom: 16, borderBottom: "1px solid var(--border)", paddingBottom: 8, overflowX: "auto" }}>
+                      <button
+                        className={`btn btn-sm ${priceTab === "tcgmatch" ? "btn-primary" : "btn-secondary"}`}
+                        onClick={() => setPriceTab("tcgmatch")}
+                        style={{ padding: "6px 12px", fontSize: 12 }}
+                      >
+                        🇨🇱 TCGMatch {(cardDetails.tcgmatch?.stats?.count !== undefined) ? `(${cardDetails.tcgmatch.stats.count})` : ""}
+                      </button>
+                      <button
+                        className={`btn btn-sm ${priceTab === "tcgplayer" ? "btn-primary" : "btn-secondary"}`}
+                        onClick={() => setPriceTab("tcgplayer")}
+                        style={{ padding: "6px 12px", fontSize: 12 }}
+                      >
+                        🇺🇸 TCGPlayer
+                      </button>
+                      <button
+                        className={`btn btn-sm ${priceTab === "cardmarket" ? "btn-primary" : "btn-secondary"}`}
+                        onClick={() => setPriceTab("cardmarket")}
+                        style={{ padding: "6px 12px", fontSize: 12 }}
+                      >
+                        🇪🇺 Cardmarket
+                      </button>
+                    </div>
 
-                    {/* TCGMatch (Chile) */}
-                    {cardDetails.tcgmatch && cardDetails.tcgmatch.stats && (
-                      <div style={{ border: "1px solid rgba(255, 193, 7, 0.4)", borderRadius: 8, overflow: "hidden", marginTop: 8 }}>
-                        <div style={{ background: "rgba(255, 193, 7, 0.15)", padding: "12px 16px", fontWeight: 700, color: "#d29d00", fontSize: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                          <span>TCGMatch 🇨🇱 (CLP)</span>
-                        </div>
-                        <div style={{ padding: 16 }}>
-                          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8, textAlign: "center", marginBottom: 16 }}>
-                            <div style={{ background: "var(--bg)", padding: 10, borderRadius: 6, border: "1px solid var(--border)" }}>
-                              <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>Mínimo</div>
-                              <div style={{ fontSize: 15, fontWeight: 700, color: "#4caf50" }}>
-                                {cardDetails.tcgmatch.stats.lowest ? `$${cardDetails.tcgmatch.stats.lowest.toLocaleString("es-CL")}` : "-"}
-                              </div>
-                            </div>
-                            <div style={{ background: "var(--bg)", padding: 10, borderRadius: 6, border: "1px solid var(--border)" }}>
-                              <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>Promedio</div>
-                              <div style={{ fontSize: 15, fontWeight: 700 }}>
-                                {cardDetails.tcgmatch.stats.average ? `$${cardDetails.tcgmatch.stats.average.toLocaleString("es-CL")}` : "-"}
-                              </div>
-                            </div>
-                            <div style={{ background: "var(--bg)", padding: 10, borderRadius: 6, border: "1px solid var(--border)" }}>
-                              <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>Máximo</div>
-                              <div style={{ fontSize: 15, fontWeight: 700 }}>
-                                {cardDetails.tcgmatch.stats.highest ? `$${cardDetails.tcgmatch.stats.highest.toLocaleString("es-CL")}` : "-"}
-                              </div>
-                            </div>
-                            <div style={{ background: "var(--bg)", padding: 10, borderRadius: 6, border: "1px solid var(--border)" }}>
-                              <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>Último Vendido</div>
-                              <div style={{ fontSize: 15, fontWeight: 700, color: "#2196F3" }}>
-                                {cardDetails.tcgmatch.stats.lastSold ? `$${cardDetails.tcgmatch.stats.lastSold.toLocaleString("es-CL")}` : "-"}
-                              </div>
-                            </div>
-                          </div>
-
-                          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: "var(--text-secondary)" }}>
-                            Listados Recientes ({cardDetails.tcgmatch.stats.count})
-                          </div>
-                          <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 200, overflowY: "auto", paddingRight: 4 }}>
-                            {cardDetails.tcgmatch.listings.map((listing: any, i: number) => (
-                              <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 10px", background: "var(--bg-hover)", borderRadius: 6, fontSize: 12 }}>
-                                <div style={{ flex: 1 }}>
-                                  <div style={{ fontWeight: 600 }}>{listing.seller}</div>
-                                  <div style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase" }}>{listing.status} · {listing.language}</div>
-                                </div>
-                                <div style={{ fontWeight: 700, color: "var(--text-primary)", fontSize: 14 }}>
-                                  ${listing.price.toLocaleString("es-CL")}
+                    {/* Active Price Tab Content */}
+                    <div style={{ minHeight: 180 }}>
+                      
+                      {/* TCGMatch (Chile) */}
+                      {priceTab === "tcgmatch" && (
+                        cardDetails.tcgmatch && cardDetails.tcgmatch.stats ? (
+                          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8, textAlign: "center" }}>
+                              <div style={{ background: "var(--bg-hover)", padding: "8px 10px", borderRadius: 6, border: "1px solid var(--border)" }}>
+                                <div style={{ fontSize: 10, color: "var(--text-muted)", marginBottom: 2 }}>Mínimo</div>
+                                <div style={{ fontSize: 14, fontWeight: 700, color: "#4caf50" }}>
+                                  {cardDetails.tcgmatch.stats.lowest ? `$${cardDetails.tcgmatch.stats.lowest.toLocaleString("es-CL")}` : "-"}
                                 </div>
                               </div>
-                            ))}
-                          </div>
-                          <div style={{ fontSize: 10, color: "var(--text-muted)", textAlign: "right", marginTop: 10 }}>
-                            * Precios referenciales de TCGMatch.cl
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* TCGPlayer */}
-                    {cardDetails.pricing.tcgplayer && (
-                      <div style={{ border: "1px solid rgba(33, 150, 243, 0.3)", borderRadius: 8, overflow: "hidden" }}>
-                        <div style={{ background: "rgba(33, 150, 243, 0.1)", padding: "12px 16px", fontWeight: 600, color: "#2196F3", fontSize: 16 }}>
-                          TCGPlayer (USD)
-                        </div>
-                        <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
-                          {Object.entries(cardDetails.pricing.tcgplayer).filter(([k, v]) => typeof v === 'object' && v !== null).map(([variant, prices]: [string, any]) => (
-                            <div key={variant}>
-                              <h5 style={{ textTransform: "capitalize", marginBottom: 8, fontSize: 14, color: "var(--text-secondary)" }}>Foil / Normal: {variant}</h5>
-                              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8, textAlign: "center", fontSize: 13 }}>
-                                <div style={{ background: "var(--bg)", padding: 8, borderRadius: 6 }}>
-                                  <div style={{ color: "var(--text-muted)", marginBottom: 4 }}>Bajo</div>
-                                  <div style={{ fontWeight: 600 }}>{prices.low ? `$${prices.low.toFixed(2)}` : "-"}</div>
+                              <div style={{ background: "var(--bg-hover)", padding: "8px 10px", borderRadius: 6, border: "1px solid var(--border)" }}>
+                                <div style={{ fontSize: 10, color: "var(--text-muted)", marginBottom: 2 }}>Promedio</div>
+                                <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text-primary)" }}>
+                                  {cardDetails.tcgmatch.stats.average ? `$${cardDetails.tcgmatch.stats.average.toLocaleString("es-CL")}` : "-"}
                                 </div>
-                                <div style={{ background: "var(--bg)", padding: 8, borderRadius: 6 }}>
-                                  <div style={{ color: "var(--text-muted)", marginBottom: 4 }}>Medio</div>
-                                  <div style={{ fontWeight: 600 }}>{prices.mid ? `$${prices.mid.toFixed(2)}` : "-"}</div>
+                              </div>
+                              <div style={{ background: "var(--bg-hover)", padding: "8px 10px", borderRadius: 6, border: "1px solid var(--border)" }}>
+                                <div style={{ fontSize: 10, color: "var(--text-muted)", marginBottom: 2 }}>Máximo</div>
+                                <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text-primary)" }}>
+                                  {cardDetails.tcgmatch.stats.highest ? `$${cardDetails.tcgmatch.stats.highest.toLocaleString("es-CL")}` : "-"}
                                 </div>
-                                <div style={{ background: "var(--bg)", padding: 8, borderRadius: 6 }}>
-                                  <div style={{ color: "var(--text-muted)", marginBottom: 4 }}>Alto</div>
-                                  <div style={{ fontWeight: 600 }}>{prices.high ? `$${prices.high.toFixed(2)}` : "-"}</div>
-                                </div>
-                                <div style={{ background: "var(--bg)", padding: 8, borderRadius: 6 }}>
-                                  <div style={{ color: "var(--text-muted)", marginBottom: 4 }}>Último Vendido</div>
-                                  <div style={{ fontWeight: 600, color: "#2196F3" }}>{prices.market ? `$${prices.market.toFixed(2)}` : "-"}</div>
+                              </div>
+                              <div style={{ background: "var(--bg-hover)", padding: "8px 10px", borderRadius: 6, border: "1px solid var(--border)" }}>
+                                <div style={{ fontSize: 10, color: "var(--text-muted)", marginBottom: 2 }}>Último Vendido</div>
+                                <div style={{ fontSize: 14, fontWeight: 700, color: "#2196F3" }}>
+                                  {cardDetails.tcgmatch.stats.lastSold ? `$${cardDetails.tcgmatch.stats.lastSold.toLocaleString("es-CL")}` : "-"}
                                 </div>
                               </div>
                             </div>
-                          ))}
-                          <div style={{ fontSize: 11, color: "var(--text-muted)", textAlign: "right" }}>
-                            Actualizado: {new Date(cardDetails.pricing.tcgplayer.updated).toLocaleDateString()}
-                          </div>
-                        </div>
-                      </div>
-                    )}
 
-                    {/* Cardmarket */}
-                    {cardDetails.pricing.cardmarket && (
-                      <div style={{ border: "1px solid rgba(233, 30, 99, 0.3)", borderRadius: 8, overflow: "hidden" }}>
-                        <div style={{ background: "rgba(233, 30, 99, 0.1)", padding: "12px 16px", fontWeight: 600, color: "#e91e63", fontSize: 16 }}>
-                          Cardmarket (EUR)
-                        </div>
-                        <div style={{ padding: 16, display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8 }}>
-                          <div style={{ background: "var(--bg)", padding: 10, borderRadius: 6, textAlign: "center" }}>
-                            <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 4 }}>Mínimo</div>
-                            <div style={{ fontSize: 15, fontWeight: 600, color: "#4caf50" }}>{cardDetails.pricing.cardmarket.low ? `€${cardDetails.pricing.cardmarket.low.toFixed(2)}` : "-"}</div>
+                            {cardDetails.tcgmatch.listings && cardDetails.tcgmatch.listings.length > 0 ? (
+                              <>
+                                <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)" }}>
+                                  Listados Recientes
+                                </div>
+                                <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 180, overflowY: "auto", paddingRight: 4 }}>
+                                  {cardDetails.tcgmatch.listings.map((listing: any, i: number) => (
+                                    <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 8px", background: "var(--bg-hover)", borderRadius: 6, fontSize: 11, border: "1px solid var(--border)" }}>
+                                      <div style={{ flex: 1 }}>
+                                        <div style={{ fontWeight: 600 }}>{listing.seller}</div>
+                                        <div style={{ fontSize: 9, color: "var(--text-muted)", textTransform: "uppercase" }}>{listing.status} · {listing.language}</div>
+                                      </div>
+                                      <div style={{ fontWeight: 700, color: "var(--text-primary)", fontSize: 13 }}>
+                                        ${listing.price.toLocaleString("es-CL")}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </>
+                            ) : (
+                              <div style={{ padding: 12, textAlign: "center", color: "var(--text-muted)", fontSize: 12, background: "var(--bg-hover)", borderRadius: 6 }}>
+                                No hay listados activos en TCGMatch.cl.
+                              </div>
+                            )}
+                            <div style={{ fontSize: 9, color: "var(--text-muted)", textAlign: "right" }}>
+                              * Precios referenciales de TCGMatch.cl
+                            </div>
                           </div>
-                          <div style={{ background: "var(--bg)", padding: 10, borderRadius: 6, textAlign: "center" }}>
-                            <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 4 }}>Promedio</div>
-                            <div style={{ fontSize: 15, fontWeight: 600 }}>{cardDetails.pricing.cardmarket.mid ? `€${cardDetails.pricing.cardmarket.mid.toFixed(2)}` : "-"}</div>
+                        ) : (
+                          <div style={{ padding: 20, textAlign: "center", color: "var(--text-muted)", background: "var(--bg-hover)", borderRadius: 8, fontSize: 13 }}>
+                            No hay información de precios en TCGMatch para esta carta.
                           </div>
-                          <div style={{ background: "var(--bg)", padding: 10, borderRadius: 6, textAlign: "center" }}>
-                            <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 4 }}>Tendencia</div>
-                            <div style={{ fontSize: 15, fontWeight: 600 }}>{cardDetails.pricing.cardmarket.high ? `€${cardDetails.pricing.cardmarket.high.toFixed(2)}` : "-"}</div>
-                          </div>
-                          <div style={{ background: "var(--bg)", padding: 10, borderRadius: 6, textAlign: "center" }}>
-                            <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 4 }}>Último Vendido</div>
-                            <div style={{ fontSize: 15, fontWeight: 600, color: "#2196F3" }}>{cardDetails.pricing.cardmarket.market ? `€${cardDetails.pricing.cardmarket.market.toFixed(2)}` : "-"}</div>
-                          </div>
-                          <div style={{ gridColumn: "span 2", fontSize: 10, color: "var(--text-muted)", textAlign: "right", marginTop: 4 }}>
-                            Actualizado: {new Date(cardDetails.pricing.cardmarket.updated).toLocaleDateString()}
-                          </div>
-                        </div>
-                      </div>
-                    )}
+                        )
+                      )}
 
+                      {/* TCGPlayer (USD) */}
+                      {priceTab === "tcgplayer" && (
+                        cardDetails.pricing?.tcgplayer && Object.keys(cardDetails.pricing.tcgplayer).length > 0 ? (
+                          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                            <div style={{ maxHeight: 250, overflowY: "auto", display: "flex", flexDirection: "column", gap: 12, paddingRight: 4 }}>
+                              {Object.entries(cardDetails.pricing.tcgplayer).filter(([k, v]) => typeof v === 'object' && v !== null).map(([variant, prices]: [string, any]) => (
+                                <div key={variant} style={{ border: "1px solid var(--border)", borderRadius: 6, padding: 8, background: "var(--bg-hover)" }}>
+                                  <h5 style={{ textTransform: "capitalize", marginBottom: 6, fontSize: 12, color: "var(--text-secondary)", borderBottom: "1px solid rgba(255,255,255,0.05)", paddingBottom: 4 }}>Variante: {variant}</h5>
+                                  <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 6, textAlign: "center", fontSize: 11 }}>
+                                    <div style={{ background: "var(--bg-primary)", padding: 6, borderRadius: 4 }}>
+                                      <div style={{ color: "var(--text-muted)", marginBottom: 2 }}>Bajo</div>
+                                      <div style={{ fontWeight: 600 }}>{prices.low ? `$${prices.low.toFixed(2)}` : "-"}</div>
+                                    </div>
+                                    <div style={{ background: "var(--bg-primary)", padding: 6, borderRadius: 4 }}>
+                                      <div style={{ color: "var(--text-muted)", marginBottom: 2 }}>Medio</div>
+                                      <div style={{ fontWeight: 600 }}>{prices.mid ? `$${prices.mid.toFixed(2)}` : "-"}</div>
+                                    </div>
+                                    <div style={{ background: "var(--bg-primary)", padding: 6, borderRadius: 4 }}>
+                                      <div style={{ color: "var(--text-muted)", marginBottom: 2 }}>Alto</div>
+                                      <div style={{ fontWeight: 600 }}>{prices.high ? `$${prices.high.toFixed(2)}` : "-"}</div>
+                                    </div>
+                                    <div style={{ background: "var(--bg-primary)", padding: 6, borderRadius: 4 }}>
+                                      <div style={{ color: "var(--text-muted)", marginBottom: 2 }}>Mercado</div>
+                                      <div style={{ fontWeight: 600, color: "#2196F3" }}>{prices.market ? `$${prices.market.toFixed(2)}` : "-"}</div>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                            {cardDetails.pricing.tcgplayer.updated && (
+                              <div style={{ fontSize: 9, color: "var(--text-muted)", textAlign: "right" }}>
+                                Actualizado: {new Date(cardDetails.pricing.tcgplayer.updated).toLocaleDateString()}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div style={{ padding: 20, textAlign: "center", color: "var(--text-muted)", background: "var(--bg-hover)", borderRadius: 8, fontSize: 13 }}>
+                            No hay información de precios en TCGPlayer para esta carta.
+                          </div>
+                        )
+                      )}
+
+                      {/* Cardmarket (EUR) */}
+                      {priceTab === "cardmarket" && (
+                        cardDetails.pricing?.cardmarket ? (
+                          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8, textAlign: "center" }}>
+                              <div style={{ background: "var(--bg-hover)", padding: "8px 10px", borderRadius: 6, border: "1px solid var(--border)" }}>
+                                <div style={{ fontSize: 10, color: "var(--text-muted)", marginBottom: 2 }}>Mínimo</div>
+                                <div style={{ fontSize: 14, fontWeight: 600, color: "#4caf50" }}>
+                                  {cardDetails.pricing.cardmarket.low ? `€${cardDetails.pricing.cardmarket.low.toFixed(2)}` : "-"}
+                                </div>
+                              </div>
+                              <div style={{ background: "var(--bg-hover)", padding: "8px 10px", borderRadius: 6, border: "1px solid var(--border)" }}>
+                                <div style={{ fontSize: 10, color: "var(--text-muted)", marginBottom: 2 }}>Promedio</div>
+                                <div style={{ fontSize: 14, fontWeight: 600 }}>
+                                  {cardDetails.pricing.cardmarket.mid ? `€${cardDetails.pricing.cardmarket.mid.toFixed(2)}` : "-"}
+                                </div>
+                              </div>
+                              <div style={{ background: "var(--bg-hover)", padding: "8px 10px", borderRadius: 6, border: "1px solid var(--border)" }}>
+                                <div style={{ fontSize: 10, color: "var(--text-muted)", marginBottom: 2 }}>Tendencia</div>
+                                <div style={{ fontSize: 14, fontWeight: 600 }}>
+                                  {cardDetails.pricing.cardmarket.high ? `€${cardDetails.pricing.cardmarket.high.toFixed(2)}` : "-"}
+                                </div>
+                              </div>
+                              <div style={{ background: "var(--bg-hover)", padding: "8px 10px", borderRadius: 6, border: "1px solid var(--border)" }}>
+                                <div style={{ fontSize: 10, color: "var(--text-muted)", marginBottom: 2 }}>Mercado</div>
+                                <div style={{ fontSize: 14, fontWeight: 600, color: "#2196F3" }}>
+                                  {cardDetails.pricing.cardmarket.market ? `€${cardDetails.pricing.cardmarket.market.toFixed(2)}` : "-"}
+                                </div>
+                              </div>
+                            </div>
+                            {cardDetails.pricing.cardmarket.updated && (
+                              <div style={{ fontSize: 9, color: "var(--text-muted)", textAlign: "right" }}>
+                                Actualizado: {new Date(cardDetails.pricing.cardmarket.updated).toLocaleDateString()}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div style={{ padding: 20, textAlign: "center", color: "var(--text-muted)", background: "var(--bg-hover)", borderRadius: 8, fontSize: 13 }}>
+                            No hay información de precios en Cardmarket para esta carta.
+                          </div>
+                        )
+                      )}
+
+                    </div>
                   </div>
                 ) : (
                   <div style={{ padding: 24, textAlign: "center", color: "var(--text-muted)", background: "var(--bg-hover)", borderRadius: 8 }}>

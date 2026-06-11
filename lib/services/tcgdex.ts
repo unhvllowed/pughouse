@@ -1,3 +1,5 @@
+import setsReleaseDates from "./sets-release-dates.json";
+
 export async function getTcgSetsMap(lang: string = "es") {
   const sets = await getTcgSets(lang);
   const map: Record<string, string> = {};
@@ -19,9 +21,18 @@ export async function getTcgSets(lang: string = "es") {
 
     if (!Array.isArray(shallowSets)) return [];
 
-    // Hydrate sets to get releaseDate for sorting
+    // Hydrate sets to get releaseDate for sorting (using cache or fallback fetch)
     const hydratedSets = await Promise.all(
       shallowSets.map(async (set: any) => {
+        const cachedDate = (setsReleaseDates as Record<string, string>)[set.id];
+        if (cachedDate) {
+          return {
+            ...set,
+            releaseDate: cachedDate,
+          };
+        }
+
+        // Fallback for new/uncached sets
         try {
           const detailRes = await fetch(`${TCGDEX_BASE}/sets/${set.id}`, {
             next: { revalidate: 604800 }
@@ -52,3 +63,4 @@ export async function getTcgSets(lang: string = "es") {
     return [];
   }
 }
+
